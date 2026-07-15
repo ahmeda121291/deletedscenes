@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   const { supabase, unauthorized } = await requireOwner();
   if (unauthorized) return unauthorized;
 
-  let body: { piece_id?: unknown; tmdb_id?: unknown };
+  let body: { piece_id?: unknown; tmdb_id?: unknown; media_type?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
   }
   const pieceId = typeof body.piece_id === "string" ? body.piece_id : null;
   const tmdbId = typeof body.tmdb_id === "number" ? body.tmdb_id : null;
+  const mediaType = body.media_type === "tv" ? "tv" : "movie";
   if (!pieceId || !tmdbId) {
     return NextResponse.json(
       { error: "piece_id and tmdb_id required" },
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
   }
 
   const res = await fetch(
-    `https://api.themoviedb.org/3/movie/${tmdbId}?append_to_response=credits&api_key=${key}`,
+    `https://api.themoviedb.org/3/${mediaType}/${tmdbId}?append_to_response=credits&api_key=${key}`,
     { cache: "no-store" }
   );
   if (!res.ok) {
@@ -45,18 +46,26 @@ export async function POST(request: NextRequest) {
   }
   const movie = await res.json();
 
+  // movies credit a director; shows credit their creator(s)
   const director =
-    (movie.credits?.crew as Array<{ job: string; name: string }> | undefined)?.find(
-      (c) => c.job === "Director"
-    )?.name ?? null;
+    mediaType === "tv"
+      ? ((movie.created_by as Array<{ name: string }> | undefined)?.[0]?.name ??
+        null)
+      : ((
+          movie.credits?.crew as Array<{ job: string; name: string }> | undefined
+        )?.find((c) => c.job === "Director")?.name ?? null);
+  const releaseDate = (movie.release_date ?? movie.first_air_date) as
+    | string
+    | undefined;
   const tmdb = {
     tmdb_id: tmdbId,
+    media_type: mediaType,
     year:
-      typeof movie.release_date === "string" && movie.release_date
-        ? movie.release_date.slice(0, 4)
+      typeof releaseDate === "string" && releaseDate
+        ? releaseDate.slice(0, 4)
         : null,
     director,
-    original_title: movie.original_title ?? null,
+    original_title: movie.original_title ?? movie.original_name ?? null,
   };
 
   // poster → our storage, as the piece's lead media

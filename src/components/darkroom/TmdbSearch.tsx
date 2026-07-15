@@ -5,6 +5,7 @@ import type { Piece, TmdbInfo } from "@/lib/types";
 
 interface Result {
   tmdb_id: number;
+  media_type: "movie" | "tv";
   title: string;
   original_title: string;
   year: string | null;
@@ -52,7 +53,11 @@ export function TmdbSearch({
     const res = await fetch("/api/tmdb/attach", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ piece_id: pieceId, tmdb_id: r.tmdb_id }),
+      body: JSON.stringify({
+        piece_id: pieceId,
+        tmdb_id: r.tmdb_id,
+        media_type: r.media_type,
+      }),
     });
     setAttaching(null);
     if (!res.ok) {
@@ -111,11 +116,11 @@ export function TmdbSearch({
             >
               <span className="font-serif text-sm">
                 {r.title}
-                {r.year && (
-                  <span className="ml-2 font-mono text-[11px] text-muted">
-                    {r.year}
-                  </span>
-                )}
+                <span className="ml-2 font-mono text-[11px] text-muted">
+                  {[r.media_type === "tv" ? "TV" : null, r.year]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
                 {r.overview && (
                   <span className="block font-serif text-xs italic text-muted">
                     {r.overview}

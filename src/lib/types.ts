@@ -14,7 +14,9 @@ export interface Collection {
 
 export interface TmdbInfo {
   tmdb_id: number;
+  media_type?: "movie" | "tv";
   year: string | null;
+  /** Director for movies; creator for TV shows. */
   director: string | null;
   original_title?: string | null;
 }

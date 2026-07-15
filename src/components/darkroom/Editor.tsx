@@ -795,7 +795,7 @@ export function Editor({
                   >
                     <option value="essay">essay</option>
                     <option value="story">story</option>
-                    <option value="movie">movie</option>
+                    <option value="movie">movie / show</option>
                     <option value="misc">misc</option>
                   </select>
                 </label>
