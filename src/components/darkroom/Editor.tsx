@@ -9,6 +9,8 @@ import {
 } from "react";
 import Link from "next/link";
 import { Markdown } from "@/components/Markdown";
+import { MediaManager } from "@/components/darkroom/MediaManager";
+import { TmdbSearch } from "@/components/darkroom/TmdbSearch";
 import {
   chunkAtParagraphs,
   concatMessages,
@@ -119,8 +121,6 @@ export function Editor({
     pending: string;
   } | null>(null);
   const [draftRestore, setDraftRestore] = useState<Draft | null>(null);
-  // media manager (kept in state so phase-3 sections stay live)
-  const [media] = useState<MediaItem[]>(initialMedia);
 
   const threadRef = useRef<HTMLDivElement>(null);
   const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -858,8 +858,14 @@ export function Editor({
                   </p>
                 )}
               </div>
-              {/* media + tmdb tools mount here in phase 3 */}
-              <div data-media-count={media.length} className="hidden" />
+              {draft.type === "movie" && (
+                <TmdbSearch
+                  pieceId={piece.id}
+                  current={piece.tmdb}
+                  onAttached={(p) => setPiece(p)}
+                />
+              )}
+              <MediaManager pieceId={piece.id} initialMedia={initialMedia} />
             </div>
           )}
         </section>

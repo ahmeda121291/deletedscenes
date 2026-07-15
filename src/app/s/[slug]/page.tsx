@@ -115,10 +115,6 @@ export default async function PiecePage({ params }: Props) {
               />
             ))}
 
-          {!isMovie &&
-            images.slice(poster ? 1 : 0).length > 0 &&
-            null /* inline images are embedded in the markdown body */}
-
           {piece.tags.length > 0 && (
             <p className="mt-12 flex flex-wrap gap-x-4 gap-y-2 border-t border-hairline pt-6 font-mono text-[11px] tracking-wider text-muted">
               {piece.tags.map((t) => (
