@@ -82,12 +82,15 @@ SUPABASE_SERVICE_ROLE_KEY=          # server-only
 ANTHROPIC_API_KEY=                  # server-only
 DEVELOP_MODEL=claude-sonnet-4-6     # server-only
 TMDB_API_KEY=                       # server-only
+ELEVENLABS_API_KEY=                 # server-only, rant box speech-to-text
 NEXT_PUBLIC_SITE_URL=https://deletedscenes.blog
 NEXT_PUBLIC_DARKROOM_CODEWORD=rewind
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, and `TMDB_API_KEY` are
-server-side only and must never be prefixed `NEXT_PUBLIC_`.
+`SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `TMDB_API_KEY`, and
+`ELEVENLABS_API_KEY` are server-side only and must never be prefixed
+`NEXT_PUBLIC_`. Environment variables only apply to deployments built
+after they're added — redeploy after changing them.
 
 If the Anthropic API rejects the model string, check current model IDs at
 <https://docs.claude.com> and update `DEVELOP_MODEL` — no deploy needed
