@@ -123,6 +123,15 @@ export function Editor({
   } | null>(null);
   const [draftRestore, setDraftRestore] = useState<Draft | null>(null);
 
+  const [recState, setRecState] = useState<
+    "idle" | "recording" | "transcribing"
+  >("idle");
+  const [recSeconds, setRecSeconds] = useState(0);
+  const recRef = useRef<MediaRecorder | null>(null);
+  const recChunks = useRef<Blob[]>([]);
+  const recTicker = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recElapsed = useRef(0);
+
   const threadRef = useRef<HTMLDivElement>(null);
   const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -242,6 +251,100 @@ export function Editor({
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight });
+  }, []);
+
+  /* ------------------------------------------------------------------ */
+  /* speak instead of type: record → transcribe → into the input box     */
+  /* ------------------------------------------------------------------ */
+
+  const MAX_REC_SECONDS = 600;
+
+  const stopRecording = useCallback(() => {
+    if (recTicker.current) clearInterval(recTicker.current);
+    recTicker.current = null;
+    if (recRef.current && recRef.current.state !== "inactive") {
+      recRef.current.stop(); // onstop handles transcription
+      setRecState("transcribing");
+    } else {
+      setRecState("idle");
+    }
+  }, []);
+
+  const transcribeBlob = useCallback(
+    async (blob: Blob) => {
+      try {
+        if (blob.size > 7_500_000) {
+          throw new Error("recording too large — keep takes under ~15 minutes");
+        }
+        const fd = new FormData();
+        fd.append("audio", blob, "rant.webm");
+        const res = await fetch("/api/transcribe", {
+          method: "POST",
+          body: fd,
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          throw new Error(data?.error ?? "transcription failed");
+        }
+        const { text } = (await res.json()) as { text: string };
+        if (text.trim()) {
+          setInput((prev) => {
+            const next = (prev ? `${prev}\n` : "") + text.trim();
+            mirrorRant(messages, next);
+            return next;
+          });
+        } else {
+          setError("heard nothing — try again closer to the mic.");
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "transcription failed");
+      } finally {
+        setRecState("idle");
+      }
+    },
+    [messages, mirrorRant]
+  );
+
+  const startRecording = useCallback(async () => {
+    setError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+      const mime = MediaRecorder.isTypeSupported("audio/webm")
+        ? "audio/webm"
+        : "audio/mp4";
+      const rec = new MediaRecorder(stream, { mimeType: mime });
+      recChunks.current = [];
+      rec.ondataavailable = (e) => {
+        if (e.data.size > 0) recChunks.current.push(e.data);
+      };
+      rec.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        void transcribeBlob(new Blob(recChunks.current, { type: mime }));
+      };
+      rec.start();
+      recRef.current = rec;
+      recElapsed.current = 0;
+      setRecSeconds(0);
+      recTicker.current = setInterval(() => {
+        recElapsed.current += 1;
+        setRecSeconds(recElapsed.current);
+        if (recElapsed.current >= MAX_REC_SECONDS) stopRecording();
+      }, 1000);
+      setRecState("recording");
+    } catch {
+      setError("microphone unavailable — check browser permissions.");
+    }
+  }, [stopRecording, transcribeBlob]);
+
+  useEffect(() => {
+    return () => {
+      if (recTicker.current) clearInterval(recTicker.current);
+      if (recRef.current && recRef.current.state !== "inactive") {
+        recRef.current.stop();
+      }
+    };
   }, []);
 
   /* ------------------------------------------------------------------ */
@@ -638,13 +741,41 @@ export function Editor({
                   {developing ?? "DEVELOP"}
                 </button>
               </div>
-              <button
-                onClick={send}
-                disabled={!input.trim()}
-                className="fade border border-hairline px-3 py-1 font-mono text-[11px] tracking-[0.15em] text-muted hover:border-muted hover:text-text disabled:opacity-40"
-              >
-                SEND
-              </button>
+              <span className="flex gap-2">
+                <button
+                  onClick={() =>
+                    recState === "recording"
+                      ? stopRecording()
+                      : recState === "idle"
+                        ? void startRecording()
+                        : undefined
+                  }
+                  disabled={recState === "transcribing"}
+                  aria-label={
+                    recState === "recording"
+                      ? "stop recording"
+                      : "record a voice rant"
+                  }
+                  className={`fade border px-3 py-1 font-mono text-[11px] tracking-[0.15em] disabled:opacity-40 ${
+                    recState === "recording"
+                      ? "border-accent text-accent"
+                      : "border-hairline text-muted hover:border-muted hover:text-text"
+                  }`}
+                >
+                  {recState === "recording"
+                    ? `■ ${Math.floor(recSeconds / 60)}:${String(recSeconds % 60).padStart(2, "0")}`
+                    : recState === "transcribing"
+                      ? "DEVELOPING AUDIO…"
+                      : "● REC"}
+                </button>
+                <button
+                  onClick={send}
+                  disabled={!input.trim()}
+                  className="fade border border-hairline px-3 py-1 font-mono text-[11px] tracking-[0.15em] text-muted hover:border-muted hover:text-text disabled:opacity-40"
+                >
+                  SEND
+                </button>
+              </span>
             </div>
           </div>
         </section>

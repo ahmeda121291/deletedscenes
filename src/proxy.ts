@@ -9,6 +9,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const PROTECTED_API_PREFIXES = [
   "/api/develop",
+  "/api/transcribe",
   "/api/upload",
   "/api/export",
   "/api/tmdb",
@@ -69,6 +70,7 @@ export const config = {
     "/darkroom/:path*",
     "/api/develop/:path*",
     "/api/develop",
+    "/api/transcribe",
     "/api/upload",
     "/api/export",
     "/api/tmdb/:path*",
