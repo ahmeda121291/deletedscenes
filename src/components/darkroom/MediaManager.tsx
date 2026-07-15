@@ -14,17 +14,22 @@ const VIDEO_TYPES = /^video\/(mp4|webm)$/;
  * Attach media to a piece. Originals go to the PRIVATE staging bucket from
  * the browser, then /api/upload runs the sharp pipeline (resize, WebP,
  * EXIF/GPS stripped) and files land in public storage.
+ *
+ * The list itself is owned by the Editor, so a TMDB poster attach can
+ * surface here without a reload.
  */
 export function MediaManager({
   pieceId,
-  initialMedia,
+  media,
+  onChange,
 }: {
   pieceId: string;
-  initialMedia: MediaItem[];
+  media: MediaItem[];
+  onChange: (next: MediaItem[]) => void;
 }) {
-  const [media, setMedia] = useState<MediaItem[]>(
-    [...initialMedia].sort((a, b) => a.sort_order - b.sort_order)
-  );
+  const setMedia = (
+    update: MediaItem[] | ((current: MediaItem[]) => MediaItem[])
+  ) => onChange(typeof update === "function" ? update(media) : update);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);

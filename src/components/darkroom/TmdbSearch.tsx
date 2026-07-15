@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Piece, TmdbInfo } from "@/lib/types";
+import type { MediaItem, Piece, TmdbInfo } from "@/lib/types";
 
 interface Result {
   tmdb_id: number;
@@ -23,7 +23,7 @@ export function TmdbSearch({
 }: {
   pieceId: string;
   current: TmdbInfo | null;
-  onAttached: (piece: Piece) => void;
+  onAttached: (piece: Piece, poster: MediaItem | null) => void;
 }) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Result[]>([]);
@@ -65,11 +65,11 @@ export function TmdbSearch({
       setError(data?.error ?? "attach failed");
       return;
     }
-    const { piece } = await res.json();
+    const { piece, media } = await res.json();
     setInfo(piece.tmdb);
     setResults([]);
     setQ("");
-    onAttached(piece as Piece);
+    onAttached(piece as Piece, (media ?? null) as MediaItem | null);
   };
 
   return (
