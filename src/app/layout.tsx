@@ -17,6 +17,10 @@ const plexMono = IBM_Plex_Mono({
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://deletedscenes.blog";
 
+/** Site-wide OG image, uploaded from Darkroom settings. Piece pages
+ * override this with their generated per-piece image. */
+const siteOgUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/media/site-og.webp`;
+
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
@@ -24,6 +28,13 @@ export const metadata: Metadata = {
     template: "%s · Deleted Scenes",
   },
   description: "the parts that didn't make the cut.",
+  openGraph: {
+    siteName: "Deleted Scenes",
+    images: [{ url: siteOgUrl, width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 /* one fixed grain overlay — the only texture on the site */

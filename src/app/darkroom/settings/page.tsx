@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { SettingsForm } from "@/components/darkroom/SettingsForm";
 import { CollectionsManager } from "@/components/darkroom/CollectionsManager";
+import { SiteOgUploader } from "@/components/darkroom/SiteOgUploader";
 import type { Collection, SiteSettings } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +51,7 @@ export default async function SettingsPage() {
         collections={(collections ?? []) as Collection[]}
         pieceCounts={pieceCounts}
       />
+      <SiteOgUploader />
     </main>
   );
 }

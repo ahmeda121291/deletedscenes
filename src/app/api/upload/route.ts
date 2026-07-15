@@ -23,7 +23,12 @@ export async function POST(request: NextRequest) {
   const { supabase, unauthorized } = await requireOwner();
   if (unauthorized) return unauthorized;
 
-  let body: { path?: unknown; piece_id?: unknown; caption?: unknown };
+  let body: {
+    path?: unknown;
+    piece_id?: unknown;
+    caption?: unknown;
+    target?: unknown;
+  };
   try {
     body = await request.json();
   } catch {
@@ -33,6 +38,7 @@ export async function POST(request: NextRequest) {
   const stagingPath = typeof body.path === "string" ? body.path : "";
   const pieceId = typeof body.piece_id === "string" ? body.piece_id : null;
   const caption = typeof body.caption === "string" ? body.caption : null;
+  const isSiteOg = body.target === "site-og";
   const ext = stagingPath.split(".").pop()?.toLowerCase() ?? "";
 
   if (!stagingPath || stagingPath.includes("..")) {
@@ -58,6 +64,34 @@ export async function POST(request: NextRequest) {
     );
   }
   const original = Buffer.from(await file.arrayBuffer());
+
+  // the site-wide OG image lives at a fixed path — same sharp pipeline
+  // (EXIF/GPS stripped), swappable without a deploy, no media row
+  if (isSiteOg) {
+    if (!isImage) {
+      await admin.storage.from("media-staging").remove([stagingPath]);
+      return NextResponse.json(
+        { error: "the site OG image must be an image" },
+        { status: 400 }
+      );
+    }
+    const processed = await sharp(original)
+      .rotate()
+      .resize(1200, 630, { fit: "cover" })
+      .webp({ quality: 85 })
+      .toBuffer();
+    const { error } = await admin.storage
+      .from("media")
+      .upload("site-og.webp", processed, {
+        contentType: "image/webp",
+        upsert: true,
+      });
+    await admin.storage.from("media-staging").remove([stagingPath]);
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ storage_path: "site-og.webp" });
+  }
 
   let finalPath: string;
   if (isImage) {

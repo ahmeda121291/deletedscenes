@@ -16,6 +16,7 @@ export function CollectionsManager({
   const [newName, setNewName] = useState("");
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [descValue, setDescValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,11 +48,16 @@ export function CollectionsManager({
 
   const rename = (id: string) => {
     if (!renameValue.trim()) return;
+    // keep_slug: renaming a live shelf shouldn't break its /c/ URL
     void call(() =>
       fetch(`/api/collections/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: renameValue.trim() }),
+        body: JSON.stringify({
+          name: renameValue.trim(),
+          description: descValue.trim() || null,
+          keep_slug: true,
+        }),
       })
     ).then((ok) => ok && setRenaming(null));
   };
@@ -97,7 +103,7 @@ export function CollectionsManager({
           >
             {renaming === c.id ? (
               <form
-                className="flex flex-1 gap-3"
+                className="flex flex-1 flex-col gap-2"
                 onSubmit={(e) => {
                   e.preventDefault();
                   rename(c.id);
@@ -107,21 +113,31 @@ export function CollectionsManager({
                   autoFocus
                   value={renameValue}
                   onChange={(e) => setRenameValue(e.target.value)}
-                  className="flex-1 border-b border-hairline bg-transparent font-serif text-base outline-none focus:border-accent"
+                  aria-label="shelf name"
+                  className="w-full border-b border-hairline bg-transparent font-serif text-base outline-none focus:border-accent"
                 />
-                <button
-                  type="submit"
-                  className="fade font-mono text-[11px] tracking-wider text-accent hover:opacity-70"
-                >
-                  save
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRenaming(null)}
-                  className="fade font-mono text-[11px] tracking-wider text-muted hover:text-text"
-                >
-                  cancel
-                </button>
+                <input
+                  value={descValue}
+                  onChange={(e) => setDescValue(e.target.value)}
+                  placeholder="description (shown under the shelf title)"
+                  aria-label="shelf description"
+                  className="w-full border-b border-hairline bg-transparent pb-1 font-serif text-sm italic outline-none placeholder:text-muted focus:border-accent"
+                />
+                <span className="flex gap-3">
+                  <button
+                    type="submit"
+                    className="fade font-mono text-[11px] tracking-wider text-accent hover:opacity-70"
+                  >
+                    save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRenaming(null)}
+                    className="fade font-mono text-[11px] tracking-wider text-muted hover:text-text"
+                  >
+                    cancel
+                  </button>
+                </span>
               </form>
             ) : (
               <>
@@ -152,10 +168,11 @@ export function CollectionsManager({
                     onClick={() => {
                       setRenaming(c.id);
                       setRenameValue(c.name);
+                      setDescValue(c.description ?? "");
                     }}
                     className="fade text-accent hover:opacity-70"
                   >
-                    rename
+                    edit
                   </button>
                   <button
                     onClick={() => remove(c)}
