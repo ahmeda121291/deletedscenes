@@ -122,6 +122,9 @@ export function Editor({
     pending: string;
   } | null>(null);
   const [draftRestore, setDraftRestore] = useState<Draft | null>(null);
+  const [media, setMedia] = useState<MediaItem[]>(() =>
+    [...initialMedia].sort((a, b) => a.sort_order - b.sort_order)
+  );
 
   const [recState, setRecState] = useState<
     "idle" | "recording" | "transcribing"
@@ -1067,10 +1070,23 @@ export function Editor({
                 <TmdbSearch
                   pieceId={piece.id}
                   current={piece.tmdb}
-                  onAttached={(p) => setPiece(p)}
+                  onAttached={(p, poster) => {
+                    setPiece(p);
+                    if (poster) {
+                      setMedia((m) =>
+                        [...m, poster].sort(
+                          (a, b) => a.sort_order - b.sort_order
+                        )
+                      );
+                    }
+                  }}
                 />
               )}
-              <MediaManager pieceId={piece.id} initialMedia={initialMedia} />
+              <MediaManager
+                pieceId={piece.id}
+                media={media}
+                onChange={setMedia}
+              />
             </div>
           )}
         </section>
