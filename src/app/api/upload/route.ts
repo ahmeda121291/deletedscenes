@@ -11,6 +11,13 @@ const IMAGE_EXTS = ["jpg", "jpeg", "png", "webp", "heic", "heif", "avif", "gif"]
 const VIDEO_EXTS = ["mp4", "webm"];
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 
+/** Wrap a Node Buffer in a Blob before handing it to storage-js — raw
+ * Buffers get serialized incorrectly on upload and the stored file is
+ * corrupt (served as image/webp but undecodable). */
+function asBlob(buf: Buffer, type: string): Blob {
+  return new Blob([new Uint8Array(buf)], { type });
+}
+
 /**
  * Finish an upload. The client puts the original file in the PRIVATE
  * `media-staging` bucket (dodging serverless body limits and keeping raw
@@ -82,7 +89,7 @@ export async function POST(request: NextRequest) {
       .toBuffer();
     const { error } = await admin.storage
       .from("media")
-      .upload("site-og.webp", processed, {
+      .upload("site-og.webp", asBlob(processed, "image/webp"), {
         contentType: "image/webp",
         upsert: true,
       });
@@ -105,7 +112,9 @@ export async function POST(request: NextRequest) {
     finalPath = `${nanoid()}.webp`;
     const { error } = await admin.storage
       .from("media")
-      .upload(finalPath, processed, { contentType: "image/webp" });
+      .upload(finalPath, asBlob(processed, "image/webp"), {
+        contentType: "image/webp",
+      });
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -117,9 +126,11 @@ export async function POST(request: NextRequest) {
     finalPath = `${nanoid()}.${ext}`;
     const { error } = await admin.storage
       .from("media")
-      .upload(finalPath, original, {
-        contentType: ext === "mp4" ? "video/mp4" : "video/webm",
-      });
+      .upload(
+        finalPath,
+        asBlob(original, ext === "mp4" ? "video/mp4" : "video/webm"),
+        { contentType: ext === "mp4" ? "video/mp4" : "video/webm" }
+      );
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
