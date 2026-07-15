@@ -83,9 +83,13 @@ export async function POST(request: NextRequest) {
         .toBuffer();
       const path = `${nanoid()}.webp`;
       const admin = createAdminClient();
+      // Blob, not raw Buffer — Buffers get serialized incorrectly by the
+      // storage client and the stored image is corrupt
       const { error: uploadError } = await admin.storage
         .from("media")
-        .upload(path, processed, { contentType: "image/webp" });
+        .upload(path, new Blob([new Uint8Array(processed)], { type: "image/webp" }), {
+          contentType: "image/webp",
+        });
       if (!uploadError) {
         const { data: first } = await supabase
           .from("media")
