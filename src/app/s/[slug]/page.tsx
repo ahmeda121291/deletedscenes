@@ -92,7 +92,12 @@ export default async function PiecePage({ params }: Props) {
           />
           {isMovie && piece.tmdb && (
             <p className="mt-1 font-mono text-xs tracking-wider text-muted">
-              {[piece.tmdb.year, piece.tmdb.director ? `DIR. ${piece.tmdb.director.toUpperCase()}` : null]
+              {[
+                piece.tmdb.year,
+                piece.tmdb.director
+                  ? `${piece.tmdb.media_type === "tv" ? "CREATED BY" : "DIR."} ${piece.tmdb.director.toUpperCase()}`
+                  : null,
+              ]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
