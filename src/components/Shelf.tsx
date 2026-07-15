@@ -7,14 +7,19 @@ export function Shelf({
   collection,
   pieces,
 }: {
-  collection: Pick<Collection, "name" | "slug">;
+  collection: Pick<Collection, "name" | "slug" | "description">;
   pieces: ShelfPiece[];
 }) {
   return (
     <section className="mt-12">
-      <div className="mb-4 flex items-baseline justify-between">
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
         <h2 className="font-mono text-xs tracking-[0.2em] text-muted">
           {collection.name.toUpperCase()}
+          {collection.description && (
+            <span className="ml-4 font-serif text-sm normal-case italic tracking-normal">
+              {collection.description}
+            </span>
+          )}
         </h2>
         {pieces.length > 0 && (
           <Link
