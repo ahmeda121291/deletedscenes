@@ -110,6 +110,7 @@ export function Editor({
   const [preview, setPreview] = useState(false);
   const [intensity, setIntensity] = useState<DevelopIntensity>("shape");
   const [developing, setDeveloping] = useState<string | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
   const [meta, setMeta] = useState<DevelopMeta | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<"clean" | "dirty" | "saving">(
@@ -393,19 +394,9 @@ export function Editor({
       setSaveState("clean");
       setSavedAt(new Date());
 
-      // meta suggestions: first ~3,000 + last ~1,000 words if huge
       setDeveloping("suggesting titles…");
-      const words = assembled.split(/\s+/);
-      const metaText =
-        words.length > 4000
-          ? `${words.slice(0, 3000).join(" ")}\n\n[…]\n\n${words.slice(-1000).join(" ")}`
-          : assembled;
       try {
-        const m = await api<DevelopMeta>("/api/develop/meta", "POST", {
-          text: metaText,
-          collections: collections.map((c) => c.name),
-        });
-        setMeta(m);
+        await fetchMeta(assembled);
       } catch (e) {
         setError(e instanceof Error ? e.message : "suggestions failed");
       }
@@ -418,6 +409,66 @@ export function Editor({
     } finally {
       setDeveloping(null);
     }
+  };
+
+  // meta suggestions: first ~3,000 + last ~1,000 words if huge
+  const fetchMeta = useCallback(
+    async (text: string) => {
+      const words = text.split(/\s+/);
+      const metaText =
+        words.length > 4000
+          ? `${words.slice(0, 3000).join(" ")}\n\n[…]\n\n${words.slice(-1000).join(" ")}`
+          : text;
+      const m = await api<DevelopMeta>("/api/develop/meta", "POST", {
+        text: metaText,
+        collections: collections.map((c) => c.name),
+      });
+      setMeta(m);
+      return m;
+    },
+    [collections]
+  );
+
+  // on-demand suggestions for the current draft, anytime
+  const suggest = async () => {
+    const text = draftRef.current.content;
+    if (!text.trim()) {
+      setError("nothing to suggest from — develop first.");
+      return;
+    }
+    setSuggesting(true);
+    setError(null);
+    try {
+      await fetchMeta(text);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "suggestions failed");
+    } finally {
+      setSuggesting(false);
+    }
+  };
+
+  // applying a title also refreshes the slug while it's still untitled
+  // or untouched — a hand-edited slug is never overwritten
+  const applyTitle = (title: string) => {
+    const slugIsPlaceholder =
+      !draft.slug || /^untitled/.test(draft.slug) || !slugTouched;
+    updateDraft({
+      title,
+      ...(slugIsPlaceholder ? { slug: slugify(title) } : {}),
+    });
+  };
+
+  const applyAll = () => {
+    if (!meta) return;
+    const suggested = collections.find(
+      (c) => c.name === meta.suggested_collection
+    );
+    applyTitle(meta.titles[0] ?? draft.title);
+    updateDraft({
+      tags: Array.from(new Set([...draft.tags, ...meta.tags])),
+      excerpt: meta.excerpt || draft.excerpt,
+      ...(suggested ? { collection_id: suggested.id } : {}),
+    });
   };
 
   /* ------------------------------------------------------------------ */
@@ -610,14 +661,29 @@ export function Editor({
             <div className="space-y-4">
               {meta && (
                 <div className="rounded-[2px] border border-hairline bg-surface p-4">
-                  <p className="font-mono text-[11px] tracking-[0.2em] text-muted">
+                  <p className="flex items-baseline justify-between font-mono text-[11px] tracking-[0.2em] text-muted">
                     SUGGESTIONS
+                    <span className="flex gap-4 tracking-[0.15em]">
+                      <button
+                        onClick={applyAll}
+                        className="fade text-accent hover:opacity-70"
+                      >
+                        use all
+                      </button>
+                      <button
+                        onClick={() => setMeta(null)}
+                        aria-label="dismiss suggestions"
+                        className="fade hover:text-text"
+                      >
+                        ×
+                      </button>
+                    </span>
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {meta.titles.map((t) => (
                       <button
                         key={t}
-                        onClick={() => updateDraft({ title: t })}
+                        onClick={() => applyTitle(t)}
                         className="fade border border-hairline px-3 py-1.5 font-serif text-sm hover:border-accent hover:text-accent"
                       >
                         {t}
@@ -695,6 +761,14 @@ export function Editor({
                     className={`fade ${showVersions ? "text-accent" : "text-muted hover:text-text"}`}
                   >
                     VERSIONS ({versions.length})
+                  </button>
+                  <button
+                    onClick={() => void suggest()}
+                    disabled={suggesting || !draft.content.trim()}
+                    title="AI-suggested titles, tags, shelf, and excerpt for the current draft"
+                    className="fade text-muted hover:text-text disabled:opacity-40"
+                  >
+                    {suggesting ? "SUGGESTING…" : "SUGGEST"}
                   </button>
                 </div>
                 <button
