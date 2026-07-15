@@ -4,6 +4,31 @@ import { join } from "node:path";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatRuntime } from "@/lib/text";
 
+/** Vendored TTFs when present (git deploys); otherwise fetched server-side
+ * once per instance — never from the reader's browser. */
+const FONT_FALLBACK_URLS: Record<string, string> = {
+  "Newsreader-Medium.ttf":
+    "https://fonts.gstatic.com/s/newsreader/v26/cY9qfjOCX1hbuyalUrK49dLac06G1ZGsZBtoBCzBDXXD9JVF438wSo_ADA.ttf",
+  "IBMPlexMono-Regular.ttf":
+    "https://fonts.gstatic.com/s/ibmplexmono/v20/-F63fjptAgt5VM-kVkqdyU8n5ig.ttf",
+};
+const fontCache = new Map<string, ArrayBuffer>();
+
+async function loadFont(file: string): Promise<ArrayBuffer> {
+  const cached = fontCache.get(file);
+  if (cached) return cached;
+  let data: ArrayBuffer;
+  try {
+    const buf = await readFile(join(process.cwd(), "src/assets/fonts", file));
+    data = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+  } catch {
+    const res = await fetch(FONT_FALLBACK_URLS[file]);
+    data = await res.arrayBuffer();
+  }
+  fontCache.set(file, data);
+  return data;
+}
+
 export const alt = "Deleted Scenes";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
@@ -24,8 +49,8 @@ export default async function OgImage({
     .maybeSingle();
 
   const [serif, mono] = await Promise.all([
-    readFile(join(process.cwd(), "src/assets/fonts/Newsreader-Medium.ttf")),
-    readFile(join(process.cwd(), "src/assets/fonts/IBMPlexMono-Regular.ttf")),
+    loadFont("Newsreader-Medium.ttf"),
+    loadFont("IBMPlexMono-Regular.ttf"),
   ]);
 
   const title = piece?.title ?? "nothing's on.";
